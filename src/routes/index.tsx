@@ -402,6 +402,12 @@ function RescuAI() {
             >
               {speaking ? "■ STOP READ-OUT" : "🔊 READ OUT PROTOCOL (TTS)"}
             </button>
+            <a
+              href="tel:112"
+              className="flex min-h-[56px] w-full items-center justify-center border-2 border-destructive bg-background font-black tracking-wide text-destructive transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              CALL EMERGENCY · 112
+            </a>
           </div>
         )}
       </div>
