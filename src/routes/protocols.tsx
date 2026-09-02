@@ -32,13 +32,15 @@ const LANGS: { code: LanguageCode; label: string }[] = [
   { code: "ta", label: "தமிழ்" },
 ];
 
-function SeverityTag({ severity }: { severity: ProtocolEntry["severity"] }) {
+function SeverityTag({ severity }: { severity: string }) {
+  const isHigh = severity.includes("HIGH");
+  const isMed = severity.includes("MEDIUM");
   return (
     <span
       className={`px-2 py-1 font-mono text-[10px] font-bold tracking-widest ${
-        severity === "HIGH SEVERITY"
+        isHigh
           ? "bg-primary text-primary-foreground"
-          : severity === "MEDIUM SEVERITY"
+          : isMed
             ? "bg-warning text-warning-foreground"
             : "bg-success text-success-foreground"
       }`}
