@@ -63,6 +63,7 @@ function RescuAI() {
   const [lastPayload, setLastPayload] = useState<{ text?: string; imageBase64?: string } | null>(null);
   const [result, setResult] = useState<EmergencyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number }>(DEFAULT_CAMPUS_COORDS);
   const [isLiveGps, setIsLiveGps] = useState(false);
   const [dispatchState, setDispatchState] = useState<"idle" | "sending" | "sent">("idle");
@@ -108,6 +109,14 @@ function RescuAI() {
     async (payload: { text?: string; imageBase64?: string }, targetLang?: LanguageCode) => {
       const activeLang = targetLang || lang;
       if (phase === "parsing") return;
+
+      // Strict input validation guard — no API call if both inputs are empty
+      if (!payload.imageBase64 && (!payload.text || payload.text.trim() === "")) {
+        setInputError("Please enter details or snap a photo");
+        return;
+      }
+      setInputError(null);
+
       setPhase("parsing");
       setError(null);
       setDispatchState("sending");
@@ -121,6 +130,17 @@ function RescuAI() {
 
       setResult(response);
       setPhase("result");
+
+      // Auto-trigger TTS when steps load
+      if (typeof window !== "undefined" && "speechSynthesis" in window && response.steps?.length > 0) {
+        window.speechSynthesis.cancel();
+        const firstStep = response.steps[0];
+        const allText = `${response.translated_warning}. Step 1: ${firstStep.title}. ${firstStep.action}`;
+        const utterance = new SpeechSynthesisUtterance(allText);
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        window.speechSynthesis.speak(utterance);
+      }
 
       const newHistory = [
         {
@@ -183,6 +203,7 @@ function RescuAI() {
     setPhase("idle");
     setResult(null);
     setError(null);
+    setInputError(null);
     setDispatchState("idle");
     setText("");
     setLastPayload(null);
@@ -259,6 +280,16 @@ function RescuAI() {
                     className="border border-amber-500 bg-amber-950/40 px-4 py-3 font-mono text-xs font-bold tracking-widest text-amber-400"
                   >
                     [ {error} ]
+                  </div>
+                )}
+
+                {inputError && (
+                  <div
+                    role="alert"
+                    id="input-validation-error"
+                    className="border border-red-500 bg-red-950/40 px-4 py-3 font-mono text-xs font-bold tracking-widest text-red-400"
+                  >
+                    ⚠ {inputError}
                   </div>
                 )}
 
@@ -373,7 +404,12 @@ function RescuAI() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (text.trim() && phase !== "parsing") {
+                    if (!text.trim()) {
+                      setInputError("Please enter details or snap a photo");
+                      return;
+                    }
+                    setInputError(null);
+                    if (phase !== "parsing") {
                       runEmergencyTriage({ text: text.trim() });
                     }
                   }}
@@ -382,14 +418,15 @@ function RescuAI() {
                   <input
                     value={text}
                     maxLength={500}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => { setText(e.target.value); if (inputError) setInputError(null); }}
                     placeholder="OR TYPE HAZARD (e.g. Acid on skin, thermal burn, deep cut)"
                     aria-label="Describe emergency hazard"
-                    className="min-h-[56px] w-full border border-zinc-800 bg-zinc-950 px-4 font-mono text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    aria-describedby={inputError ? "input-validation-error" : undefined}
+                    className={`min-h-[56px] w-full border bg-zinc-950 px-4 font-mono text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500 ${inputError ? "border-red-500" : "border-zinc-800"}`}
                   />
                   <button
                     type="submit"
-                    disabled={!text.trim() || phase === "parsing"}
+                    disabled={phase === "parsing"}
                     className="min-h-[56px] w-full bg-red-600 font-mono text-sm font-black tracking-widest text-white uppercase disabled:opacity-40 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors shadow-md"
                   >
                     GET EMERGENCY ACTION PROTOCOL
@@ -454,12 +491,20 @@ function RescuAI() {
               </>
             )}
 
-            {/* PARSING LOADING STATE */}
+            {/* PARSING LOADING STATE — FULL OVERLAY LOADER */}
             {phase === "parsing" && (
-              <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 border border-zinc-800 bg-zinc-950 p-6 text-center shadow-inner">
-                <div className="h-1.5 w-48 bg-amber-500 animate-pulse rounded-full" />
+              <div
+                role="status"
+                aria-live="polite"
+                aria-label="Parsing hazard via Gemini"
+                className="flex min-h-[320px] flex-col items-center justify-center gap-4 border border-amber-500/60 bg-zinc-950 p-6 text-center shadow-inner"
+              >
+                <div className="relative flex h-16 w-16 items-center justify-center">
+                  <span className="absolute h-16 w-16 rounded-full border-4 border-amber-500/30 animate-ping" />
+                  <span className="h-10 w-10 rounded-full border-4 border-t-amber-400 border-amber-500/20 animate-spin" />
+                </div>
                 <p className="font-mono text-sm font-bold tracking-[0.2em] text-amber-400 uppercase animate-pulse">
-                  PARSING HAZARD VIA GEMINI 2.5 FLASH…
+                  PARSING HAZARD VIA GEMINI...
                 </p>
                 <p className="font-mono text-[11px] text-zinc-500">
                   STATELESS SERVERLESS PROXY · ENFORCING STRICT 3-STEP SCHEMA
@@ -472,10 +517,11 @@ function RescuAI() {
               <>
                 {error && (
                   <div
-                    role="status"
-                    className="border border-amber-500 bg-amber-950/40 px-4 py-3 font-mono text-xs font-bold tracking-widest text-amber-400"
+                    role="alert"
+                    aria-live="assertive"
+                    className="border border-red-500 bg-red-950/40 px-4 py-3 font-mono text-xs font-bold tracking-widest text-red-400"
                   >
-                    [ {error} ]
+                    ⚠ FALLBACK PROTOCOL ACTIVE — {error}
                   </div>
                 )}
 
