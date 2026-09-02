@@ -142,7 +142,12 @@ export async function processEmergency(req: EmergencyRequest): Promise<Emergency
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(req),
+      body: JSON.stringify({
+        text_input: req.text,
+        image_base64: req.imageBase64,
+        language: req.language,
+        location: req.coords,
+      }),
       signal: controller.signal,
     });
 
@@ -152,9 +157,17 @@ export async function processEmergency(req: EmergencyRequest): Promise<Emergency
       throw new Error(`Server returned HTTP ${res.status}`);
     }
 
-    const data = (await res.json()) as EmergencyResponse;
-    if (!data.steps || data.steps.length !== 3) {
-      throw new Error("Invalid response format received");
+    const raw = await res.json();
+    // Strip non-standard fields returned by edge function
+    const data: EmergencyResponse = {
+      incident_type: raw.incident_type || "Unknown Emergency",
+      severity: raw.severity || "HIGH",
+      translated_warning: raw.translated_warning || raw.error || "Stay calm. Help is on the way.",
+      steps: Array.isArray(raw.steps) ? raw.steps : [],
+    };
+
+    if (!data.steps || data.steps.length < 1) {
+      throw new Error("Invalid response: no steps returned");
     }
 
     return { ...data, offline: false };

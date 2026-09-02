@@ -131,16 +131,7 @@ function RescuAI() {
       setResult(response);
       setPhase("result");
 
-      // Auto-trigger TTS when steps load
-      if (typeof window !== "undefined" && "speechSynthesis" in window && response.steps?.length > 0) {
-        window.speechSynthesis.cancel();
-        const firstStep = response.steps[0];
-        const allText = `${response.translated_warning}. Step 1: ${firstStep.title}. ${firstStep.action}`;
-        const utterance = new SpeechSynthesisUtterance(allText);
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        window.speechSynthesis.speak(utterance);
-      }
+      // TTS is handled automatically by the AudioPlayer component (autoPlay={true})
 
       const newHistory = [
         {
