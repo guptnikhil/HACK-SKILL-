@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   requestTriage,
@@ -34,6 +34,23 @@ const LANGS: { code: LanguageCode; label: string }[] = [
 const PRESETS = ["CHEMICAL SPLASH", "THERMAL BURN", "DEEP CUT"];
 
 type Phase = "idle" | "parsing" | "result";
+
+type Incident = { hazard: string; severity: string; at: number };
+const HISTORY_KEY = "rescuai-incidents";
+
+function loadHistory(): Incident[] {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as Incident[]).slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
+
+function formatElapsed(sec: number) {
+  const m = Math.floor(sec / 60);
+  return `${String(m).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+}
 
 function speak(text: string, lang: LanguageCode) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
