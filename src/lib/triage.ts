@@ -82,15 +82,17 @@ function matchHazard(input: string): string {
 
 export function fallbackProtocol(input: string, language: LanguageCode): TriageResult {
   const hazard = matchHazard(input);
-  const base = STATIC_PROTOCOLS[hazard];
+  const base = STATIC_PROTOCOLS[hazard] ?? STATIC_PROTOCOLS["DEEP CUT"]!;
+  const warning = WARNINGS[hazard] ?? WARNINGS["DEEP CUT"]!;
   return {
     hazard,
     severity: base.severity,
-    translatedWarning: WARNINGS[hazard][language],
+    translatedWarning: warning[language],
     steps: base.steps,
     offline: true,
   };
 }
+
 
 export async function requestTriage(req: TriageRequest): Promise<TriageResult> {
   const label = req.text ?? "hazard photo";
