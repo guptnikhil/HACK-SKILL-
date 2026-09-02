@@ -94,6 +94,22 @@ export function fallbackProtocol(input: string, language: LanguageCode): TriageR
 }
 
 
+export type ProtocolEntry = {
+  hazard: string;
+  severity: Severity;
+  warning: Record<LanguageCode, string>;
+  steps: ProtocolStep[];
+};
+
+export function listProtocols(): ProtocolEntry[] {
+  return Object.entries(STATIC_PROTOCOLS).map(([hazard, base]) => ({
+    hazard,
+    severity: base.severity,
+    warning: WARNINGS[hazard]!,
+    steps: base.steps,
+  }));
+}
+
 export async function requestTriage(req: TriageRequest): Promise<TriageResult> {
   const label = req.text ?? "hazard photo";
   try {

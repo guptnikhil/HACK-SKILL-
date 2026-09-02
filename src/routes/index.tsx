@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   requestTriage,
@@ -35,6 +35,23 @@ const PRESETS = ["CHEMICAL SPLASH", "THERMAL BURN", "DEEP CUT"];
 
 type Phase = "idle" | "parsing" | "result";
 
+type Incident = { hazard: string; severity: string; at: number };
+const HISTORY_KEY = "rescuai-incidents";
+
+function loadHistory(): Incident[] {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as Incident[]).slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
+
+function formatElapsed(sec: number) {
+  const m = Math.floor(sec / 60);
+  return `${String(m).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+}
+
 function speak(text: string, lang: LanguageCode) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
@@ -54,7 +71,18 @@ function RescuAI() {
   const [gps, setGps] = useState<"LOCATING" | "ACTIVE" | "DENIED">("LOCATING");
   const [dispatch, setDispatch] = useState<"idle" | "sending" | "sent">("idle");
   const [speaking, setSpeaking] = useState(false);
+  const [history, setHistory] = useState<Incident[]>([]);
+  const [elapsed, setElapsed] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => setHistory(loadHistory()), []);
+
+  useEffect(() => {
+    if (phase !== "result") return;
+    setElapsed(0);
+    const t = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [phase]);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return setGps("DENIED");
@@ -76,6 +104,14 @@ function RescuAI() {
       const res = await requestTriage({ ...payload, language: lang, coords });
       setResult(res);
       setPhase("result");
+      const next = [
+        { hazard: res.hazard, severity: res.severity, at: Date.now() },
+        ...loadHistory(),
+      ].slice(0, 5);
+      try {
+        window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      } catch { /* storage unavailable */ }
+      setHistory(next);
       if (res.offline) setError("OFFLINE MODE - STANDARD FIRST-AID PROTOCOL");
       const first = res.steps[0];
       if (first) {
@@ -234,6 +270,34 @@ function RescuAI() {
                   </button>
                 ))}
               </div>
+
+              {history.length > 0 && (
+                <section aria-label="Recent incidents" className="border border-border bg-surface">
+                  <h2 className="border-b border-border px-4 py-2 font-mono text-[10px] font-bold tracking-[0.25em] text-muted-foreground">
+                    RECENT INCIDENTS
+                  </h2>
+                  <ul>
+                    {history.map((h) => (
+                      <li
+                        key={h.at}
+                        className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 last:border-b-0"
+                      >
+                        <span className="truncate font-mono text-xs text-foreground">{h.hazard}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                          {new Date(h.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              <Link
+                to="/protocols"
+                className="flex min-h-[56px] items-center justify-center border border-border bg-background font-mono text-xs font-bold tracking-widest text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                [ OFFLINE PROTOCOL LIBRARY ]
+              </Link>
             </>
           )}
 
@@ -260,7 +324,7 @@ function RescuAI() {
 
               <div className="flex items-center justify-between gap-3 border border-border bg-surface px-4 py-3">
                 <span className="font-mono text-xs tracking-widest text-muted-foreground">
-                  {result.hazard}
+                  {result.hazard} · T+{formatElapsed(elapsed)}
                 </span>
                 <span
                   className={`px-2 py-1 font-mono text-[11px] font-bold tracking-widest ${
@@ -338,6 +402,12 @@ function RescuAI() {
             >
               {speaking ? "■ STOP READ-OUT" : "🔊 READ OUT PROTOCOL (TTS)"}
             </button>
+            <a
+              href="tel:112"
+              className="flex min-h-[56px] w-full items-center justify-center border-2 border-destructive bg-background font-black tracking-wide text-destructive transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              CALL EMERGENCY · 112
+            </a>
           </div>
         )}
       </div>
