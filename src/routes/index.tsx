@@ -270,6 +270,34 @@ function RescuAI() {
                   </button>
                 ))}
               </div>
+
+              {history.length > 0 && (
+                <section aria-label="Recent incidents" className="border border-border bg-surface">
+                  <h2 className="border-b border-border px-4 py-2 font-mono text-[10px] font-bold tracking-[0.25em] text-muted-foreground">
+                    RECENT INCIDENTS
+                  </h2>
+                  <ul>
+                    {history.map((h) => (
+                      <li
+                        key={h.at}
+                        className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 last:border-b-0"
+                      >
+                        <span className="truncate font-mono text-xs text-foreground">{h.hazard}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                          {new Date(h.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              <Link
+                to="/protocols"
+                className="flex min-h-[56px] items-center justify-center border border-border bg-background font-mono text-xs font-bold tracking-widest text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                [ OFFLINE PROTOCOL LIBRARY ]
+              </Link>
             </>
           )}
 
@@ -296,7 +324,7 @@ function RescuAI() {
 
               <div className="flex items-center justify-between gap-3 border border-border bg-surface px-4 py-3">
                 <span className="font-mono text-xs tracking-widest text-muted-foreground">
-                  {result.hazard}
+                  {result.hazard} · T+{formatElapsed(elapsed)}
                 </span>
                 <span
                   className={`px-2 py-1 font-mono text-[11px] font-bold tracking-widest ${
