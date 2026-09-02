@@ -71,7 +71,18 @@ function RescuAI() {
   const [gps, setGps] = useState<"LOCATING" | "ACTIVE" | "DENIED">("LOCATING");
   const [dispatch, setDispatch] = useState<"idle" | "sending" | "sent">("idle");
   const [speaking, setSpeaking] = useState(false);
+  const [history, setHistory] = useState<Incident[]>([]);
+  const [elapsed, setElapsed] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => setHistory(loadHistory()), []);
+
+  useEffect(() => {
+    if (phase !== "result") return;
+    setElapsed(0);
+    const t = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [phase]);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return setGps("DENIED");
@@ -93,6 +104,14 @@ function RescuAI() {
       const res = await requestTriage({ ...payload, language: lang, coords });
       setResult(res);
       setPhase("result");
+      const next = [
+        { hazard: res.hazard, severity: res.severity, at: Date.now() },
+        ...loadHistory(),
+      ].slice(0, 5);
+      try {
+        window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      } catch { /* storage unavailable */ }
+      setHistory(next);
       if (res.offline) setError("OFFLINE MODE - STANDARD FIRST-AID PROTOCOL");
       const first = res.steps[0];
       if (first) {
